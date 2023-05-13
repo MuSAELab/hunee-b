@@ -1,0 +1,9 @@
+extractor: !new:torchaudio.transforms.Spectrogram
+  n_fft: 512
+  win_length: 400
+  hop_length: 160
+  power: 2
+
+delta: !new:torchaudio.transforms.ComputeDeltas
+  win_length: 5
+  mode: 'replicate'

@@ -9,7 +9,7 @@ import torch
 import torchaudio
 from hyperpyyaml import load_hyperpyyaml
 
-from beessl import hub
+from beessl.hub import options
 from beessl.downstream.runner import Runner
 
 
@@ -17,7 +17,7 @@ def get_downstream_args():
     parser = argparse.ArgumentParser()
 
     # train or test for this experiment
-    parser.add_argument('-m', '--mode', choices=['train', 'evaluate', 'inference'], required=True)
+    parser.add_argument('-m', '--mode', choices=['train', 'evaluate'], required=True)
     parser.add_argument('-o', '--override', help='Used to override args and config, this is at the highest priority')
 
     # @TODO: Add re-initialization scheme to continue training from a checkpoint
@@ -28,7 +28,7 @@ def get_downstream_args():
     )
 
     # Upstream settings
-    upstreams = [attr for attr in dir(hub) if attr[0] != '_']
+    upstreams = options()
     parser.add_argument('-u', '--upstream',  help=""
         'Upstreams need a local ckpt (-k) or config file (-g). '
         'Please check upstream/README.md for details. '

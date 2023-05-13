@@ -1,0 +1,11 @@
+extractor: !new:torchaudio.transforms.MelSpectrogram
+  sample_rate: 16000
+  n_fft: 512
+  win_length: 400
+  hop_length: 160
+  n_mels: 80
+  power: 2
+
+delta: !new:torchaudio.transforms.ComputeDeltas
+  win_length: 5
+  mode: 'replicate'
