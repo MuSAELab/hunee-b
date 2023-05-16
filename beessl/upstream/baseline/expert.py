@@ -12,7 +12,9 @@ class UpstreamExpert(nn.Module):
         if self.delta:
             d = self.delta(feats)
             dd = self.delta(d)
-            feats = torch.cat([feats, d, dd], dim=1)
+            feats = [feats, d, dd]
+        else:
+            feats = [feats]
 
         return {
             "hidden_states": feats,

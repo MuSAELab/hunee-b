@@ -21,8 +21,10 @@ setup(
         "pandas==2.0.1",
         "torch==2.0.0",
         "torchaudio==2.0.1",
+        "torchvision==0.15.1",
         "speechbrain>=0.5.14",
-        "transformers==4.28.1"
+        "transformers==4.28.1",
+        "scikit-learn==1.2.2",
     ],
     python_requires=">=3.8"
 )

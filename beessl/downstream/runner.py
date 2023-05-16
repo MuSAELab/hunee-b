@@ -1,4 +1,5 @@
 import torch
+import importlib
 from beessl import hub
 from beessl.downstream.featurizer import Featurizer
 
@@ -9,7 +10,6 @@ class Runner:
 
         # Load downstream components
         self.upstream_model = self._get_upstream()
-        self.featurizer = self._get_featurizer()
         self.downstream = self._get_downstream()
 
     def _get_upstream(self):
@@ -24,14 +24,20 @@ class Runner:
             model_config = self.args.upstream_model_config,
         ).to(self.args.device)
 
-    def _get_featurizer(self):
-        return Featurizer()
-
     def _get_downstream(self):
-        pass
+        print(f"[Runner] - Selected the {self.args.downstream} downstream")
+        brain = importlib.import_module(
+            f"beessl.downstream.{self.args.downstream}.brain"
+        )
+
+        return getattr(brain, "DownstreamBrain")(
+            upstream=self.upstream_model,
+            args=self.args,
+            config=self.config
+        )
 
     def train(self):
-        print("[Runner] - Starting the training process")
+        self.downstream.train_downstream()
 
     def evaluate(self):
-        print("[Runner] - Starting the evaluate process")
+        self.downstream.evaluate_downstream()

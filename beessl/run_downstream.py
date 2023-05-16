@@ -9,6 +9,7 @@ import torch
 import torchaudio
 from hyperpyyaml import load_hyperpyyaml
 
+from beessl import hub
 from beessl.hub import options
 from beessl.downstream.runner import Runner
 
@@ -58,6 +59,7 @@ def get_downstream_args():
     os.makedirs(args.expdir, exist_ok=True)
 
     args.config = f'./downstream/{args.downstream}/config.yaml'
+    args.override = parse_override(args)
     with open(args.config, 'r') as f:
         config = load_hyperpyyaml(f, args.override)
 
@@ -75,6 +77,37 @@ def seed_everything(seed):
         torch.backends.cudnn.deterministic = True
         torch.backends.cudnn.benchmark = False
 
+def parse_override(args):
+    num_hidden_layers, in_features = get_representation_info(args)
+    override = f"expdir={args.expdir},,"\
+               f"num_hidden_layers={num_hidden_layers},,"\
+               f"in_features={in_features}"
+
+    if args.override is not None:
+        override = f"{override},,{args.override}"
+
+    # parse override
+    override = override.split(',,')
+    override = [kv.replace('=', ': ') for kv in override]
+    override = "\n".join(override)
+
+    return override
+
+def get_representation_info(args):
+    Upstream = getattr(hub, args.upstream)
+    model = Upstream(
+        ckpt = args.upstream_ckpt,
+        model_config = args.upstream_model_config
+    ).to(args.device)
+
+    fake_input = torch.randn(1, 16000).to(args.device)
+    with torch.no_grad():
+        fake_output = model(fake_input)["hidden_states"]
+
+    num_hidden_layers = len(fake_output)
+    in_features = fake_output[0].shape[1]
+
+    return num_hidden_layers, in_features
 
 def main():
     logging.basicConfig(level=logging.INFO)
