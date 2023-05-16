@@ -49,8 +49,8 @@ modules:
 error_stats: !name:speechbrain.utils.metric_stats.BinaryMetricStats
 
 # Optimizer and Scheduler parameters
-lr: 0.0001
-opt_class: !name:torch.optim.Adam
+lr: 0.001
+opt_class: !name:torch.optim.RMSprop
   lr: !ref <lr>
 
 lr_scheduler: !new:speechbrain.nnet.schedulers.NewBobScheduler

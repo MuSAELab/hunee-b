@@ -3,7 +3,9 @@ import speechbrain.nnet.schedulers as schedulers
 from beessl.downstream.queenbee_detection.dataset import dataio_prep
 from beessl.downstream.queenbee_detection.dataset import prepare_nuhive
 
+from sklearn.metrics import f1_score
 from sklearn.metrics import roc_auc_score
+from sklearn.metrics import accuracy_score
 
 
 class DownstreamBrain(sb.Brain):
@@ -69,17 +71,17 @@ class DownstreamBrain(sb.Brain):
         if stage != sb.Stage.TRAIN:
             # Summarize the statistics from the stage for record-keeping.
             metrics = self.error_metric.summarize()
-            right = metrics["TP"] + metrics["TN"]
-            total = sum([metrics[M] for M in ["TP", "TN", "FP", "FN"]])
+            threshold = metrics["threshold"]
+
+            y_true = self.error_metric.labels.cpu()
+            y_pred = self.error_metric.scores.cpu()
+            y_bin = (y_pred > threshold).int()
 
             stats = {
                 "loss": stage_loss,
-                "accuracy": right / total,
-                "roc_auc": roc_auc_score(
-                    self.error_metric.labels.cpu(),
-                    self.error_metric.scores.cpu()
-                ),
-                "F1": metrics["F-score"],
+                "accuracy": accuracy_score(y_true, y_bin),
+                "roc_auc": roc_auc_score(y_true, y_pred),
+                "F1": f1_score(y_true, y_bin)
             }
 
         # At the end of validation, we can write stats, checkpoints and update LR.
