@@ -1,11 +1,9 @@
+import torch
 import speechbrain as sb
 import speechbrain.nnet.schedulers as schedulers
 from beessl.downstream.queenbee_detection.dataset import dataio_prep
 from beessl.downstream.queenbee_detection.dataset import prepare_nuhive
-
-from sklearn.metrics import f1_score
 from sklearn.metrics import roc_auc_score
-from sklearn.metrics import accuracy_score
 
 
 class DownstreamBrain(sb.Brain):
@@ -27,6 +25,12 @@ class DownstreamBrain(sb.Brain):
     def compute_forward(self, batch, stage):
         signal, lens = batch.bee_sig
         signal = signal.to(self.device) # B x T
+
+        # Add augmentation if specified
+        if stage == sb.Stage.TRAIN and self.hparams.augmentation is not None:
+            if torch.rand(1) < 0.5:
+                lens = lens.to(self.device)
+                signal = self.hparams.augmentation(signal, lens)
 
         # Extract features from upstream and weight them
         # Nomenclature: (L = Layers, F = Features, T = Time)
@@ -75,19 +79,17 @@ class DownstreamBrain(sb.Brain):
 
             y_true = self.error_metric.labels.cpu()
             y_pred = self.error_metric.scores.cpu()
-            y_bin = (y_pred > threshold).int()
+            roc_auc = roc_auc_score(y_true, y_pred)
 
             stats = {
                 "loss": stage_loss,
-                "accuracy": accuracy_score(y_true, y_bin),
-                "roc_auc": roc_auc_score(y_true, y_pred),
-                "F1": f1_score(y_true, y_bin)
+                "roc_auc": roc_auc
             }
 
         # At the end of validation, we can write stats, checkpoints and update LR.
         if (stage != sb.Stage.TRAIN):
             if (stage == sb.Stage.VALID):
-                current_lr, next_lr = self.hparams.lr_scheduler(epoch)
+                current_lr, next_lr = self.hparams.lr_scheduler(stage_loss)
                 schedulers.update_learning_rate(self.optimizer, next_lr)
 
                 # The train_logger writes a summary to stdout and to the logfile.

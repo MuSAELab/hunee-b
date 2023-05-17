@@ -14,12 +14,15 @@ train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
   save_file: !ref <log_path>
 
 # Training Parameters
-number_of_epochs: 10
+number_of_epochs: 20
 batch_size: 8
 
 dataloader_options:
   shuffle: True
   batch_size: !ref <batch_size>
+
+augmentation: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
+  speeds: [98, 102]
 
 num_hidden_layers: !PLACEHOLDER # Automatically computed! Do not change
 in_features: !PLACEHOLDER # Automatically computed! Do not change
@@ -65,6 +68,7 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     featurizer: !ref <featurizer>
     pooling: !ref <pooling>
     projector: !ref <projector>
+    epoch_counter: !ref <epoch_counter>
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
   limit: !ref <number_of_epochs>
