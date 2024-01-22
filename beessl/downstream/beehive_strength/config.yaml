@@ -14,16 +14,24 @@ train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
   save_file: !ref <log_path>
 
 # Training Parameters
-number_of_epochs: 20
-batch_size: 64
+number_of_epochs: 10
+batch_size: 192
 
 dataloader_options:
   shuffle: True
-  num_workers: 8
   batch_size: !ref <batch_size>
 
 augmentation: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
-  speeds: [98, 102]
+  perturb_prob: 0
+  drop_freq_prob: 0.5
+  drop_chunk_prob: 0.5
+  sample_rate: 16000
+  drop_freq_count_low: 0
+  drop_freq_count_high: 3
+  drop_chunk_count_low: 0
+  drop_chunk_count_high: 5
+  drop_chunk_length_low: 1600
+  drop_chunk_length_high: 3200
 
 num_hidden_layers: !PLACEHOLDER # Automatically computed! Do not change
 in_features: !PLACEHOLDER # Automatically computed! Do not change
@@ -31,14 +39,24 @@ in_features: !PLACEHOLDER # Automatically computed! Do not change
 featurizer: !new:beessl.downstream.featurizer.Featurizer
   num_hidden_layers: !ref <num_hidden_layers>
 
-pooling: !new:speechbrain.lobes.models.ECAPA_TDNN.AttentiveStatisticsPooling
-  channels: !ref <in_features>
-  attention_channels: 128
-  global_context: True
+# pooling: !new:speechbrain.lobes.models.ECAPA_TDNN.AttentiveStatisticsPooling
+#   channels: !ref <in_features>
+#   attention_channels: 128
+#   global_context: True
 
-in_projector: !applyref:operator.add
-  - !ref <in_features>
-  - !ref <in_features>
+in_projector: 128
+
+embedding_model: !new:speechbrain.lobes.models.ECAPA_TDNN.ECAPA_TDNN
+  input_size: !ref <in_features>
+  channels: [64, 128, 128]
+  kernel_sizes: [5, 3, 3]
+  dilations: [1, 2, 1]
+  attention_channels: 64
+  lin_neurons: !ref <in_projector>
+
+# in_projector: !applyref:operator.add
+#   - !ref <in_features>
+#   - !ref <in_features>
 
 projector: !new:torch.nn.Linear
   in_features: !ref <in_projector>
@@ -46,14 +64,16 @@ projector: !new:torch.nn.Linear
 
 loss: !new:torch.nn.MSELoss
 modules:
+  embedding_model: !ref <embedding_model>
   featurizer: !ref <featurizer>
-  pooling: !ref <pooling>
+  # pooling: !ref <pooling>
   projector: !ref <projector>
 
 # Optimizer and Scheduler parameters
 lr: 0.0001
 opt_class: !name:torch.optim.Adam
   lr: !ref <lr>
+  weight_decay: 0.00001
 
 lr_scheduler: !new:speechbrain.nnet.schedulers.NewBobScheduler
   initial_value: !ref <lr>
@@ -64,8 +84,9 @@ lr_scheduler: !new:speechbrain.nnet.schedulers.NewBobScheduler
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
   checkpoints_dir: !ref <model_folder>
   recoverables:
+    embedding_model: !ref <embedding_model>
     featurizer: !ref <featurizer>
-    pooling: !ref <pooling>
+    # pooling: !ref <pooling>
     projector: !ref <projector>
     epoch_counter: !ref <epoch_counter>
 

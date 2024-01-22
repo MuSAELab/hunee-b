@@ -1,4 +1,5 @@
 import torch
+import torch.nn.functional as F
 import speechbrain as sb
 import speechbrain.nnet.schedulers as schedulers
 from beessl.downstream.beehive_strength.dataset import dataio_prep
@@ -27,10 +28,9 @@ class DownstreamBrain(sb.Brain):
         signal = signal.to(self.device) # B x T
 
         # Add augmentation if specified
-        # if stage == sb.Stage.TRAIN and self.hparams.augmentation is not None:
-        #     if torch.rand(1) < 0.5:
-        #         lens = lens.to(self.device)
-        #         signal = self.hparams.augmentation(signal, lens)
+        if stage == sb.Stage.TRAIN and self.hparams.augmentation is not None:
+            lens = lens.to(self.device)
+            signal = self.hparams.augmentation(signal, lens)
 
         # Extract features from upstream and weight them
         # Nomenclature: (L = Layers, F = Features, T = Time)
@@ -38,23 +38,29 @@ class DownstreamBrain(sb.Brain):
         feats = self.modules.featurizer(feats) # B x F x T
 
         # Attention pooling and perform the classification
-        feats = self.modules.pooling(feats).squeeze(-1) # B x F x T => B x F
-        return self.modules.projector(feats)
+        feats = self.modules.embedding_model(feats.transpose(1, 2)) # B x F x T => B x 1 X F
+        feats = feats.squeeze() # B x 1 X F => B x F
+        # feats = self.modules.pooling(feats).squeeze(-1) # B x F x T => B x F
+        return F.relu(self.modules.projector(feats))
 
     def compute_objectives(self, predictions, batch, stage):
         # Get targets
         targets, lens = batch.target
         targets = targets.to(self.device) # B, 1
-        targets = torch.log(targets)
 
         # Compute the loss function
-        loss = self.hparams.loss(predictions, targets)
+        loss = self.hparams.loss(predictions, targets)**0.5
         if (stage != sb.Stage.TRAIN):
+            # Clip predictions to the number of boxes
+            num_boxes, _ = batch.num_of_boxes
+            num_boxes = num_boxes.to(self.device)
+            predictions = torch.where(predictions > 10*num_boxes, 10*num_boxes, predictions)
+
             for metric in [self.l1_metric, self.l2_metric]:
                 metric.append(
                     ids=batch.id,
                     predictions=predictions,
-                    targets=torch.exp(targets),
+                    targets=targets,
                     reduction="batch",
                 )
 
@@ -86,7 +92,6 @@ class DownstreamBrain(sb.Brain):
             l2_metric = self.l2_metric.summarize()
 
             stats = {
-                "rmsle": stage_loss,
                 "mse": l2_metric["average"],
                 "rmse": l2_metric["average"]**0.5,
                 "mae": l1_metric["average"]
@@ -101,13 +106,13 @@ class DownstreamBrain(sb.Brain):
                 # The train_logger writes a summary to stdout and to the logfile.
                 self.hparams.train_logger.log_stats(
                     stats_meta={"Epoch": epoch, "LR": current_lr},
-                    train_stats={"rmsle": self.train_loss},
+                    train_stats={"mse": self.train_loss},
                     valid_stats=stats,
                 )
 
                 # Save the current checkpoint and delete previous checkpoints,
                 # unless they have the current best task1_metric
-                self.checkpointer.save_and_keep_only(meta=stats, min_keys=["rmsle"])
+                self.checkpointer.save_and_keep_only(meta=stats, min_keys=["mae"])
 
             elif stage == sb.Stage.TEST:
                 self.hparams.train_logger.log_stats(
@@ -129,7 +134,7 @@ class DownstreamBrain(sb.Brain):
         print("[DownstreamBrain] - Starting the evaluate process")
         self.evaluate(
             test_set=self.datasets["test"],
-            min_key="rmsle",
+            min_key="mae",
             progressbar=True,
             test_loader_kwargs=self.hparams.dataloader_options,
         )

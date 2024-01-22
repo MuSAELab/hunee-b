@@ -50,9 +50,11 @@ def create_json(dataframe, json_file, data_folder):
     for index, row in dataframe.iterrows():
         id_ = os.path.basename(row["wav"]).split(".")[0]
         wav_file, label = os.path.join(data_folder, row["wav"]), row["FramesOfBees"]
+        nob = int(float(label) // 10 + int(float(label) % 10 > 0.1))
         json_dict[id_] = {
             "wav": wav_file,
             "fob": label,
+            "nob": nob,
         }
 
     # Writing the json lines
@@ -88,7 +90,12 @@ def dataio_prep(hparams):
     @sb.utils.data_pipeline.takes("fob")
     @sb.utils.data_pipeline.provides("target")
     def label_pipeline(fob):
-        return torch.tensor([float(fob)])
+        return torch.round(torch.tensor([float(fob)]), decimals=0)
+
+    @sb.utils.data_pipeline.takes("nob")
+    @sb.utils.data_pipeline.provides("num_of_boxes")
+    def nob_pipeline(nob):
+        return torch.round(torch.tensor([float(nob)]), decimals=0)
 
     # Define datasets
     datasets = {}
@@ -101,8 +108,8 @@ def dataio_prep(hparams):
         datasets[dataset] = sb.dataio.dataset.DynamicItemDataset.from_json(
             json_path=data_info[dataset],
             replacements={"data_root": hparams["data_root"]},
-            dynamic_items=[wav_pipeline, label_pipeline],
-            output_keys=["id", "bee_sig", "target"],
+            dynamic_items=[wav_pipeline, label_pipeline, nob_pipeline],
+            output_keys=["id", "bee_sig", "target", "num_of_boxes"],
         )
 
     return datasets
