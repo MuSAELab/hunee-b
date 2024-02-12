@@ -1,0 +1,20 @@
+feature_extractor: null
+
+conv_extractor: !new:speechbrain.lobes.models.convolution.ConvolutionFrontEnd
+  input_shape: [null, 16000, 1,]
+  num_blocks: 5
+  num_layers_per_block: 1
+  out_channels: [64, 128, 256, 256, 256]
+  kernel_sizes: [11, 3, 3, 3, 3]
+  strides: [5, 2, 2, 2, 2]
+  dilations: [1, 1, 1, 1, 1]
+  residuals: [False, False, False, False, False]
+  conv_module: !name:speechbrain.nnet.CNN.Conv1d
+  activation: !name:torch.nn.GELU
+  norm: !name:speechbrain.nnet.normalization.LayerNorm
+  dropout: 0.0
+  conv_bias: False
+  padding: "valid"
+  conv_init: "kaiming"
+
+encoder: null
