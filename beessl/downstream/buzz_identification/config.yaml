@@ -1,0 +1,85 @@
+# Path: beessl/downstream/queenbee_detection/config.yaml
+# Data manifest
+expdir: !PLACEHOLDER
+data_root: !PLACEHOLDER # You can replace this by hand
+model_folder: !ref <expdir>/save
+log_path: !ref <expdir>/log.txt
+annotation_folder: !ref <expdir>
+train_annotation: !ref <annotation_folder>/train.json
+valid_annotation: !ref <annotation_folder>/valid.json
+test_annotation: !ref <annotation_folder>/test.json
+
+# logs
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+  save_file: !ref <log_path>
+
+# Training Parameters
+number_of_epochs: 20
+batch_size: 64
+
+dataloader_options:
+  shuffle: True
+  batch_size: !ref <batch_size>
+
+augmentation: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
+  perturb_prob: 0
+  drop_freq_prob: 0.5
+  drop_chunk_prob: 0.5
+  sample_rate: 16000
+  drop_freq_count_low: 0
+  drop_freq_count_high: 3
+  drop_chunk_count_low: 0
+  drop_chunk_count_high: 5
+  drop_chunk_length_low: 1600
+  drop_chunk_length_high: 3200
+
+num_hidden_layers: !PLACEHOLDER # Automatically computed! Do not change
+in_features: !PLACEHOLDER # Automatically computed! Do not change
+
+featurizer: !new:beessl.downstream.featurizer.Featurizer
+  num_hidden_layers: !ref <num_hidden_layers>
+
+pooling: !new:speechbrain.lobes.models.ECAPA_TDNN.AttentiveStatisticsPooling
+  channels: !ref <in_features>
+  attention_channels: 128
+  global_context: True
+
+in_projector: !applyref:operator.add
+  - !ref <in_features>
+  - !ref <in_features>
+
+projector: !new:torch.nn.Linear
+  in_features: !ref <in_projector>
+  out_features: 3
+
+loss: !new:torch.nn.CrossEntropyLoss
+modules:
+  featurizer: !ref <featurizer>
+  pooling: !ref <pooling>
+  projector: !ref <projector>
+
+error_stats: !name:speechbrain.utils.metric_stats.MetricStats
+  metric: !name:speechbrain.nnet.losses.classification_error
+    reduction: batch
+
+# Optimizer and Scheduler parameters
+lr: 0.001
+opt_class: !name:torch.optim.Adam
+  lr: !ref <lr>
+
+lr_scheduler: !new:speechbrain.nnet.schedulers.NewBobScheduler
+  initial_value: !ref <lr>
+  annealing_factor: 0.5
+  patient: 1
+
+# Save state of the training process
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+  checkpoints_dir: !ref <model_folder>
+  recoverables:
+    featurizer: !ref <featurizer>
+    pooling: !ref <pooling>
+    projector: !ref <projector>
+    epoch_counter: !ref <epoch_counter>
+
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+  limit: !ref <number_of_epochs>

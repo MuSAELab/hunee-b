@@ -1,6 +1,7 @@
 import os
 import zipfile
 import argparse
+import numpy as np
 import pandas as pd
 from glob import glob
 from tqdm import tqdm
@@ -14,6 +15,15 @@ SAMPLE_RATE = 16000
 train_tag = ['0006', '3629', '3631', '3640', '3690', '3693'] # ==> ~55%
 valid_tag = ["3692", "3628"] # ==> ~22%
 test_tag = ["3627", "3691"] # ==> ~23%
+
+def exp_interpolate(group):
+    df = pd.DataFrame()
+    df["Date"] = pd.date_range(start=group.Date.min(), end=group.Date.max())
+    df = df.merge(group, on="Date", how="outer")
+    df["FramesOfBees"] = df["FramesOfBees"].apply(np.log).interpolate(method="linear").apply(np.exp)
+
+    return df
+
 
 def process_file(fname, output_path, step):
     try:
@@ -36,13 +46,13 @@ def process_file(fname, output_path, step):
     finally:
         os.remove(fname)
 
+
 def main(input_path, output_path, step_size):
     # Preprocess the original label dataset
     labels_2021 = pd.read_excel(os.path.join(input_path, '2021', 'rooftop_hives_labels_2021.xlsx'))
     labels_2021 = labels_2021[["Date", "Tag", "Fob 1st", "Fob 2nd", "Fob 3rd"]]
     labels_2021 = labels_2021.dropna(subset="Date")
     labels_2021["Date"] = pd.to_datetime(labels_2021["Date"], format="%d-%m-%Y")
-    labels_2021["Week"] = labels_2021.Date.dt.isocalendar().week
 
     labels_2021 = labels_2021.fillna(0)
     labels_2021["Tag"] = labels_2021.Tag.astype(str)
@@ -51,20 +61,26 @@ def main(input_path, output_path, step_size):
     labels_2021["FramesOfBees"] = labels_2021[["Fob 1st", "Fob 2nd", "Fob 3rd"]].sum(axis=1)
     labels_2021 = labels_2021[labels_2021["FramesOfBees"] > 0]
     labels_2021 = labels_2021.drop(["Fob 1st", "Fob 2nd", "Fob 3rd"], axis=1)
+    labels_2021 = labels_2021.groupby("Tag")[["Date", "FramesOfBees"]].apply(lambda g: exp_interpolate(g)).reset_index()
 
     # Get the available zip files
     fnames_list = glob(f'{input_path}/**/*.zip', recursive=True)
     df = pd.DataFrame({'zip': fnames_list})
     df["Date"] = df["zip"].str.extract(r'(\d{2}-\d{2}-\d{4})')
     df["Date"] = pd.to_datetime(df["Date"], format="%d-%m-%Y")
-    df["Week"] = df.Date.dt.isocalendar().week
+
+    df["Datetime"] = df["zip"].str.extract(r'(\d{2}-\d{2}-\d{4}_\d{2}h\d{2})')
+    df["Datetime"] = pd.to_datetime(df["Datetime"], format="%d-%m-%Y_%Hh%M")
+
     df["Tag"] = df["zip"].apply(lambda x: x.split("-")[-1][:-4])
 
     # Merge both datasets
-    merged = pd.merge(labels_2021, df, on=["Week", "Tag"], how="inner")
-    merged["delta"] = abs(merged.Date_x - merged.Date_y)
-    merged = merged[merged["delta"] <= pd.Timedelta(2, unit='d')]
+    merged = pd.merge(labels_2021, df, on=["Date", "Tag"], how="inner").sort_values(by=["Tag", "Datetime"])
+    merged = merged.set_index(merged["Datetime"], drop=True)
     merged = merged[["zip", "Tag", "FramesOfBees"]]
+
+    merged = merged.between_time(start_time='22:00:00',end_time='06:00:00')
+    merged = merged.groupby("Tag").sample(80, random_state=42)
 
     # First, extract all zip files
     for fname in tqdm(merged.zip):
