@@ -1,0 +1,83 @@
+# Data configuration
+expdir: !PLACEHOLDER
+data_root: !PLACEHOLDER # You can replace this by hand
+model_folder: !ref <expdir>/save
+log_path: !ref <expdir>/log.txt
+annotation_folder: !ref <expdir>
+train_annotation: !ref <annotation_folder>/train.json
+valid_annotation: !ref <annotation_folder>/valid.json
+
+# logs
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+  save_file: !ref <log_path>
+
+# Training Parameters
+sample_rate: 16000
+sig_length: 240000 # 15 seconds per audio
+number_of_epochs: 100
+batch_size: 32
+hidden_size: 512
+embedding_size: 256
+alpha_ema: 0.99
+attention_channels: 32
+
+dataloader_options:
+  shuffle: True
+  batch_size: !ref <batch_size>
+
+num_hidden_layers: !PLACEHOLDER # Automatically computed! Do not change
+in_features: !PLACEHOLDER # Automatically computed! Do not change
+
+sig_transform: !new:beessl.pretrain.beeyol.dataset.TrainTransform
+  sample_rate: !ref <sample_rate>
+
+# Model configuration
+projection_student: !new:beessl.pretrain.beeyol.byol.MLP
+  in_dim: !ref <in_features>
+  hidden_dim: !ref <hidden_size>
+  out_dim: !ref <embedding_size>
+  attentive_pooling: True
+  attention_channels: !ref <attention_channels>
+
+projection_teacher: !new:beessl.pretrain.beeyol.byol.MLP
+  in_dim: !ref <in_features>
+  hidden_dim: !ref <hidden_size>
+  out_dim: !ref <embedding_size>
+  attentive_pooling: True
+  attention_channels: !ref <attention_channels>
+
+prediction_student: !new:beessl.pretrain.beeyol.byol.MLP
+  in_dim: !ref <embedding_size>
+  hidden_dim: !ref <hidden_size>
+  out_dim: !ref <embedding_size>
+  attentive_pooling: False
+
+loss: !name:beessl.pretrain.beeyol.byol.byol_loss
+
+modules:
+  upstream: null
+  projection_student: !ref <projection_student>
+  prediction_student: !ref <prediction_student>
+  projection_teacher: !ref <projection_teacher>
+
+# Optimizer and Scheduler parameters
+lr: 0.0001
+opt_class: !name:torch.optim.Adam
+  lr: !ref <lr>
+  weight_decay: 0.00001
+
+lr_scheduler: !new:speechbrain.nnet.schedulers.NewBobScheduler
+  initial_value: !ref <lr>
+  annealing_factor: 0.5
+  patient: 0
+
+# Save state of the training process
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+  checkpoints_dir: !ref <model_folder>
+  recoverables:
+    projection_student: !ref <projection_student>
+    prediction_student: !ref <prediction_student>
+    projection_teacher: !ref <projection_teacher>
+
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+  limit: !ref <number_of_epochs>
