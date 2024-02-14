@@ -124,22 +124,26 @@ class TrainTransform:
     def __init__(self, sample_rate:int=16000):
         self.sample_rate = sample_rate
         self.transform = Compose([
-            AddGaussianSNR(min_snr_db=0, max_snr_db=20.0, p=0.5),
-            TimeMask(min_band_part=0.05, max_band_part=0.1, fade=True, p=0.5),
+            AddGaussianSNR(min_snr_db=10.0, max_snr_db=20.0, p=0.5),
+            TimeMask(min_band_part=0.1, max_band_part=0.2, fade=True, p=0.5),
             BandPassFilter(
-                min_center_freq=16.0,
-                max_center_freq=1024.0,
-                p=0.5
+                min_center_freq=300.0,
+                max_center_freq=1000.0,
+                min_bandwidth_fraction=0.8,
+                max_bandwidth_fraction=1.5,
+                p=0.3
             ),
         ])
 
         self.transform_prime = Compose([
-            AddGaussianSNR(min_snr_db=0, max_snr_db=20.0, p=0.5),
+            AddGaussianSNR(min_snr_db=10.0, max_snr_db=20.0, p=0.5),
             TimeMask(min_band_part=0.1, max_band_part=0.2, fade=True, p=0.5),
             BandPassFilter(
-                min_center_freq=16.0,
-                max_center_freq=1024.0,
-                p=0.5
+                min_center_freq=300.0,
+                max_center_freq=1000.0,
+                min_bandwidth_fraction=0.8,
+                max_bandwidth_fraction=1.5,
+                p=0.3
             ),
         ])
 
