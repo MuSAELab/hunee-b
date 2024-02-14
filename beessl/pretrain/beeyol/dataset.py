@@ -19,7 +19,7 @@ from speechbrain.utils.data_utils import get_all_files
 logger = logging.getLogger(__name__)
 
 def prepare_nectar(
-    data_folder, save_folder, skip_prep=False, extension=".wav", chunkwise=False
+    data_folder, save_folder, skip_prep=False, extension=[".wav", ".WAV"], chunkwise=False
 ):
     if skip_prep:
         return
@@ -36,7 +36,7 @@ def prepare_nectar(
     if not os.path.exists(save_folder):
         os.makedirs(save_folder)
 
-    wav_lst_train = get_all_files(data_folder, match_and=extension)
+    wav_lst_train = get_all_files(data_folder, match_or=extension)
     # wav_lst_train = wav_lst_train[:1000] #@todo: remove this line
 
     # Split the data into train and valid
