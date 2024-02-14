@@ -39,43 +39,71 @@ class PretrainBrain(sb.Brain):
 
     @torch.no_grad()
     def update_moving_average(self):
-       for student_params, teacher_params in zip(
+        for student_params, teacher_params in zip(
            self.modules.student.parameters(),
            self.modules.teacher.parameters()
         ):
-         old_weight, up_weight = teacher_params.data, student_params.data
-         teacher_params.data = self.target_ema_updater.update_average(old_weight, up_weight)
+            old_weight, up_weight = teacher_params.data, student_params.data
+            teacher_params.data = self.target_ema_updater.update_average(old_weight, up_weight)
+        
+        for student_params, teacher_params in zip(
+           self.modules.projection_student.parameters(),
+           self.modules.projection_teacher.parameters()
+        ):
+            old_weight, up_weight = teacher_params.data, student_params.data
+            teacher_params.data = self.target_ema_updater.update_average(old_weight, up_weight)
 
+    def normalize_signal(self, sig):
+        return (sig - sig.mean(dim=0)) / (sig.std(dim=0) + 1e-5)
 
-    def compute_forward(self, batch, stage):
-        (sig, _), (sig_prime, _) = batch["bee_sig"], batch["bee_sig_prime"]
-        sig = sig.to(self.device)
+    def student_forward(self, sig):
         embd_student = self.modules.student(sig.squeeze())["hidden_states"][-1]
         embd_student = embd_student.transpose(1, 2)
-
         projection_student = self.modules.projection_student(embd_student)
-        prediction_student = self.modules.prediction_student(projection_student)
 
-        with torch.no_grad():
-            sig_prime = sig_prime.to(self.device)
-            embd_teacher = self.modules.teacher(sig_prime.squeeze())["hidden_states"][-1]
-            embd_teacher = embd_teacher.transpose(1, 2)
-            projection_teacher = self.modules.projection_teacher(embd_teacher).detach_()
+        return self.modules.prediction_student(projection_student)
 
-        return prediction_student, projection_teacher 
+    @torch.no_grad()
+    def teacher_forward(self, sig):
+        embd_teacher = self.modules.teacher(sig.squeeze())["hidden_states"][-1]
+        embd_teacher = embd_teacher.transpose(1, 2)
+        return self.modules.projection_teacher(embd_teacher).detach_()
+
+    def compute_forward(self, batch, stage):
+        # Get the data, prenorm + augment
+        sig, lens = batch["bee_sig"]
+        sig = sig.to(self.device)
+        sig = self.normalize_signal(sig)
+        sig, sig_prime = self.hparams.sig_transform(sig)
+
+        # Forward pass
+        pred_student = self.student_forward(sig)
+        proj_teacher_prime = self.teacher_forward(sig_prime)
+
+        pred_student_prime = self.student_forward(sig_prime)
+        proj_teacher = self.teacher_forward(sig)
+
+        return (pred_student, proj_teacher_prime), (pred_student_prime, proj_teacher)
 
     def compute_objectives(self, predictions, batch, stage):
-        prediction_student, projection_teacher = predictions
-        loss = self.hparams.loss(prediction_student, projection_teacher)
+        (pred_student, proj_teacher_prime), (pred_student_prime, proj_teacher) = predictions
+        loss_a = self.hparams.loss(pred_student, proj_teacher_prime)
+        loss_b = self.hparams.loss(pred_student_prime, proj_teacher)
 
         if (stage != sb.Stage.TRAIN):
             self.loss_metric.append(
                 ids=batch.id,
-                z=prediction_student,
-                z_prime=projection_teacher
+                z=pred_student,
+                z_prime=proj_teacher_prime
             )
 
-        return loss.mean()
+            self.loss_metric.append(
+                ids=batch.id,
+                z=pred_student_prime,
+                z_prime=proj_teacher
+            )
+
+        return (loss_a + loss_b).mean()
 
     def on_stage_start(self, stage, epoch=None):
         self.loss_metric = sb.utils.metric_stats.MetricStats(

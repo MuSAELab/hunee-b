@@ -6,9 +6,10 @@ import warnings
 from tqdm import tqdm
 from typing import Tuple
 from audiomentations import Compose
-from audiomentations import AddGaussianSNR
 from audiomentations import TimeMask
 from audiomentations import BandPassFilter
+from audiomentations import AddGaussianSNR
+from audiomentations import SpecFrequencyMask
 
 import torch
 import torchaudio
@@ -89,7 +90,7 @@ def skip(*filenames):
 def dataio_prep(hparams):
     # Define audio pipelines
     @sb.utils.data_pipeline.takes("wav", "duration")
-    @sb.utils.data_pipeline.provides("bee_sig", "bee_sig_prime")
+    @sb.utils.data_pipeline.provides("bee_sig")
     def wav_pipeline(wav, duration):
         # Randomly crop the wav files
         duration = duration * hparams["sample_rate"]
@@ -100,9 +101,7 @@ def dataio_prep(hparams):
             "stop": start + hparams["sig_length"],
         }).squeeze().numpy()
 
-        # Apply transformations for BYOL
-        wav, wav_prime = hparams["sig_transform"](wav)
-        return wav, wav_prime
+        return wav
 
     # Define datasets
     datasets = {}
@@ -115,11 +114,8 @@ def dataio_prep(hparams):
             json_path=data_info[dataset],
             replacements={"data_root": hparams["data_root"]},
             dynamic_items=[wav_pipeline],
-            output_keys=["id", "bee_sig", "bee_sig_prime"],
+            output_keys=["id", "bee_sig"],
         )
-
-    return datasets
-
 
     return datasets
 
@@ -129,27 +125,36 @@ class TrainTransform:
         self.sample_rate = sample_rate
         self.transform = Compose([
             AddGaussianSNR(min_snr_db=0, max_snr_db=20.0, p=0.5),
-            TimeMask(min_band_part=0.05, max_band_part=0.1, fade=True, p=0.25),
+            TimeMask(min_band_part=0.05, max_band_part=0.1, fade=True, p=0.5),
             BandPassFilter(
                 min_center_freq=16.0,
                 max_center_freq=1024.0,
-                p=0.25
+                p=0.5
             ),
         ])
 
         self.transform_prime = Compose([
             AddGaussianSNR(min_snr_db=0, max_snr_db=20.0, p=0.5),
-            TimeMask(min_band_part=0.05, max_band_part=0.1, fade=True, p=0.25),
+            TimeMask(min_band_part=0.1, max_band_part=0.2, fade=True, p=0.5),
             BandPassFilter(
                 min_center_freq=16.0,
                 max_center_freq=1024.0,
-                p=0.25
+                p=0.5
             ),
         ])
 
-    def __call__(self, sample) -> Tuple[torch.Tensor, torch.Tensor]:
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            x1 = self.transform(sample.squeeze(), sample_rate=self.sample_rate)
-            x2 = self.transform_prime(sample.squeeze(), sample_rate=self.sample_rate)
-        return torch.tensor(x1).unsqueeze(0), torch.tensor(x2).unsqueeze(0)
+    def __call__(self, samples) -> Tuple[torch.Tensor, torch.Tensor]:
+        # with warnings.catch_warnings():
+        #     warnings.simplefilter("ignore")
+        device = samples.device
+        x, x_prime = [], []
+        for audio in torch.unbind(samples, dim=0):
+            audio = audio.squeeze().detach().cpu().numpy()
+            x1 = self.transform(audio, sample_rate=self.sample_rate)
+            x2 = self.transform_prime(audio, sample_rate=self.sample_rate)
+
+            # Save back to torch tensor
+            x.append(torch.tensor(x1).unsqueeze(0))
+            x_prime.append(torch.tensor(x2).unsqueeze(0))
+
+        return torch.cat(x).to(device), torch.cat(x_prime).to(device)
