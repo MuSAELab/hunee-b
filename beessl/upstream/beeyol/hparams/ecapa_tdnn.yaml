@@ -1,0 +1,19 @@
+feature_extractor: !new:torchaudio.transforms.MelSpectrogram
+  sample_rate: 16000
+  n_fft: 512
+  win_length: 400
+  hop_length: 160
+  n_mels: 80
+  power: 2
+
+conv_extractor: !new:beessl.upstream.beeyol.helper.ECAPA_TDNN
+  input_size: 80
+  activation: !new:torch.nn.ReLU
+  channels: [256, 256, 256, 256, 768]
+  kernel_sizes: [5, 3, 3, 3, 1]
+  dilations: [1, 2, 3, 4, 1]
+  res2net_scale: 8
+  se_channels: 128
+  groups: [1, 1, 1, 1, 1]
+
+encoder: null

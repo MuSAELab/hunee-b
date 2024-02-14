@@ -15,7 +15,7 @@ train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
 sample_rate: 16000
 sig_length: 240000 # 15 seconds per audio
 number_of_epochs: 100
-batch_size: 32
+batch_size: 16
 hidden_size: 512
 embedding_size: 256
 alpha_ema: 0.99

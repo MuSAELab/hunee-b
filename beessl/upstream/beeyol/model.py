@@ -19,8 +19,8 @@ class BeeYOL(nn.Module):
         self.encoder = self.config.encoder
 
     def forward(self, wavs):
-        wavs = wavs.unsqueeze(-1)
-        feats = self.conv_extractor(wavs)
+        feats = self.feature_extractor(wavs).transpose(1, 2)
+        feats = self.conv_extractor(feats)
         if self.encoder:
             feats = self.encoder(feats)
         else:

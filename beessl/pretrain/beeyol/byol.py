@@ -38,8 +38,6 @@ class MLP(nn.Module):
         self.activation = nn.ReLU()
         self.fc2 = nn.Linear(hidden_dim, out_dim)
 
-        
-
     def forward(self, x):
         if self.attentive_pooling:
             x = x.transpose(1, 2)
