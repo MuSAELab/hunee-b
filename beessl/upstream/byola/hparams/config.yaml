@@ -9,7 +9,7 @@ n_mels: 64
 f_min: 60
 f_max: 7800
 # Dimensions of feature representations.
-feature_d: 3072
+feature_d: 512
 # BYOL parameters.
 proj_size: 256
 proj_dim: 4096
@@ -17,7 +17,7 @@ ema_decay: 0.99
 # Training parameters.
 seed: 42
 bs: 256
-lr: 0.0001
+lr: 0.0003
 epochs: 100
 gpus: 1
 num_workers: 8
