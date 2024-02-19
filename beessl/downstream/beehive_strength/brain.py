@@ -38,9 +38,9 @@ class DownstreamBrain(sb.Brain):
         feats = self.modules.featurizer(feats) # B x F x T
 
         # Attention pooling and perform the classification
-        feats = self.modules.embedding_model(feats.transpose(1, 2)) # B x F x T => B x 1 X F
-        feats = feats.squeeze() # B x 1 X F => B x F
-        # feats = self.modules.pooling(feats).squeeze(-1) # B x F x T => B x F
+        # feats = self.modules.embedding_model(feats.transpose(1, 2)) # B x F x T => B x 1 X F
+        # feats = feats.squeeze() # B x 1 X F => B x F
+        feats = self.modules.pooling(feats).squeeze(-1) # B x F x T => B x F
         return F.relu(self.modules.projector(feats))
 
     def compute_objectives(self, predictions, batch, stage):
@@ -49,7 +49,7 @@ class DownstreamBrain(sb.Brain):
         targets = targets.to(self.device) # B, 1
 
         # Compute the loss function
-        loss = self.hparams.loss(predictions, targets)**0.5
+        loss = self.hparams.loss(predictions, targets)
         if (stage != sb.Stage.TRAIN):
             # Clip predictions to the number of boxes
             num_boxes, _ = batch.num_of_boxes
