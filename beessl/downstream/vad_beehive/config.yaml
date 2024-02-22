@@ -1,74 +1,74 @@
-# Path: beessl/downstream/queenbee_detection/config.yaml
+# Path: beessl/downstream/vad_beehive/config.yaml
 # Data manifest
 expdir: !PLACEHOLDER
 data_root: !PLACEHOLDER # You can replace this by hand
 model_folder: !ref <expdir>/save
 log_path: !ref <expdir>/log.txt
-annotation_folder: !ref <expdir>
-train_annotation: !ref <annotation_folder>/train.json
-valid_annotation: !ref <annotation_folder>/valid.json
-test_annotation: !ref <annotation_folder>/test.json
-chunkwise: True
-chunk_length: 480000
+win_length: 0.25
+sample_rate: 16000
 
 # logs
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
   save_file: !ref <log_path>
 
 # Training Parameters
-number_of_epochs: 10
-batch_size: 16
+number_of_epochs: 100
+batch_size: 128
+embd_dim: 64
 
 dataloader_options:
   shuffle: True
   batch_size: !ref <batch_size>
 
 augmentation: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
-  perturb_prob: 1.0
-  speeds: [98, 1, 102]
-  drop_freq_prob: 1.0
-  drop_chunk_prob: 1.0
   sample_rate: 16000
-  drop_freq_count_low: 0
-  drop_freq_count_high: 5
+  speeds: [98, 102]
   drop_chunk_count_low: 0
-  drop_chunk_count_high: 10
-  drop_chunk_length_low: 1600
-  drop_chunk_length_high: 3200
+  drop_chunk_count_high: 1
+  drop_chunk_length_low: 320
+  drop_chunk_length_high: 1600
 
 num_hidden_layers: !PLACEHOLDER # Automatically computed! Do not change
 in_features: !PLACEHOLDER # Automatically computed! Do not change
+
+featurer_projector: !new:torch.nn.Linear
+  in_features: !ref <in_features>
+  out_features: !ref <embd_dim>
 
 featurizer: !new:beessl.downstream.featurizer.Featurizer
   num_hidden_layers: !ref <num_hidden_layers>
 
 pooling: !new:speechbrain.lobes.models.ECAPA_TDNN.AttentiveStatisticsPooling
-  channels: !ref <in_features>
-  attention_channels: 32
+  channels: !ref <embd_dim>
+  attention_channels: 16
   global_context: True
 
 in_projector: !applyref:operator.add
-  - !ref <in_features>
-  - !ref <in_features>
+  - !ref <embd_dim>
+  - !ref <embd_dim>
 
 projector: !new:speechbrain.nnet.containers.Sequential
   input_shape: [null, !ref <in_projector>]
-  dpt01: !new:torch.nn.Dropout
+  drop1: !new:torch.nn.Dropout
     p: 0.5
   linear: !new:torch.nn.Linear
     in_features: !ref <in_projector>
-    out_features: 64
-  batchnorm: !new:torch.nn.BatchNorm1d
-    num_features: 64
+    out_features: !ref <embd_dim>
+  bn: !new:torch.nn.BatchNorm1d
+    num_features: !ref <embd_dim>
+  drop2: !new:torch.nn.Dropout
+    p: 0.25
   activation: !new:torch.nn.ReLU
-  dpt02: !new:torch.nn.Dropout
-    p: 0.3
   linear2: !new:torch.nn.Linear
-    in_features: 64
+    in_features: !ref <embd_dim>
     out_features: 1
 
 loss: !new:torch.nn.BCEWithLogitsLoss
+  pos_weight: !new:torch.Tensor
+    data: [8.0]
+
 modules:
+  featurer_projector: !ref <featurer_projector>
   featurizer: !ref <featurizer>
   pooling: !ref <pooling>
   projector: !ref <projector>
@@ -76,10 +76,10 @@ modules:
 error_stats: !name:speechbrain.utils.metric_stats.BinaryMetricStats
 
 # Optimizer and Scheduler parameters
-lr: 0.0005
-opt_class: !name:torch.optim.RMSprop
+lr: 0.0001
+opt_class: !name:torch.optim.AdamW
   lr: !ref <lr>
-  weight_decay: 0.0001
+  weight_decay: 0.00005
 
 lr_scheduler: !new:speechbrain.nnet.schedulers.NewBobScheduler
   initial_value: !ref <lr>
@@ -90,6 +90,7 @@ lr_scheduler: !new:speechbrain.nnet.schedulers.NewBobScheduler
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
   checkpoints_dir: !ref <model_folder>
   recoverables:
+    featurer_projector: !ref <featurer_projector>
     featurizer: !ref <featurizer>
     pooling: !ref <pooling>
     projector: !ref <projector>

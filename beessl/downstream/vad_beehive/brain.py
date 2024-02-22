@@ -2,30 +2,8 @@ import torch
 import speechbrain as sb
 import torch.nn.functional as F
 import speechbrain.nnet.schedulers as schedulers
-from beessl.downstream.queenbee_detection.dataset import dataio_prep
-from beessl.downstream.queenbee_detection.dataset import prepare_nuhive
-from sklearn.metrics import roc_auc_score
-
-from collections import defaultdict
-
-def roc_auc_segments(error_metric):
-    ids = error_metric.ids
-    y_true = error_metric.labels.cpu()
-    y_pred = error_metric.scores.cpu()
-
-    y_pred = y_pred.sigmoid()
-    ids = [i.split("_chunk_")[0] for i in ids]
-
-    # Get the index of repeated elements
-    pos_map = defaultdict(list)
-    for pos, ele in enumerate(ids):
-        pos_map[ele].append(pos)
-
-    ids_keys = pos_map.keys()
-    y_pred_agg = [y_pred[pos_map[i]].mean() for i in ids_keys]
-    y_true_agg = [y_true[pos_map[i]].mean() for i in ids_keys]
-
-    return roc_auc_score(y_true_agg, y_pred_agg)
+from beessl.downstream.vad_beehive.dataset import prepare_nuhive
+from sklearn.metrics import classification_report
 
 
 class DownstreamBrain(sb.Brain):
@@ -43,20 +21,28 @@ class DownstreamBrain(sb.Brain):
         )
 
         self.prepare_datasets()
+        self.hparams.loss = self.hparams.loss.to(self.device)
 
     def compute_forward(self, batch, stage):
-        signal, lens = batch.bee_sig
+        signal, _ = batch
         signal = signal.to(self.device) # B x T
-        signal = signal / signal.max(dim=-1, keepdim=True)[0] # Normalize the signal
 
         # Add augmentation if specified
         if stage == sb.Stage.TRAIN and self.hparams.augmentation is not None:
-            lens = lens.to(self.device)
-            signal = self.hparams.augmentation(signal, lens)
+            if torch.rand(1) > 0.5:
+                lens = torch.ones(len(signal)).to(self.device)
+                signal = self.hparams.augmentation(signal, lens)
 
         # Extract features from upstream and weight them
         # Nomenclature: (L = Layers, F = Features, T = Time)
         feats = self.upstream(signal)["hidden_states"] # L x [B x F x T] (List of tensors)
+
+        feats = torch.stack(feats, dim=0) # L x B x F x T
+        feats = F.layer_norm(feats, feats.shape)
+        feats = self.modules.featurer_projector(feats.transpose(2, 3)) # L x B x T x F
+        feats = feats.transpose(2, 3) # L x B x F x T
+
+        feats = torch.unbind(feats, dim=0) # L x [B x F x T] (List of tensors)
         feats = self.modules.featurizer(feats) # B x F x T
 
         # Attention pooling and perform the classification
@@ -65,14 +51,14 @@ class DownstreamBrain(sb.Brain):
 
     def compute_objectives(self, predictions, batch, stage):
         # Get targets
-        targets, lens = batch.target
+        _, targets = batch
         targets = targets.to(self.device) # B, 1
 
         # Compute the loss function
         loss = self.hparams.loss(predictions, targets)
         if (stage != sb.Stage.TRAIN):
             self.error_metric.append(
-                ids=batch.id,
+                ids=torch.arange(len(targets)),
                 scores=predictions,
                 labels=targets
             )
@@ -96,13 +82,15 @@ class DownstreamBrain(sb.Brain):
 
         if stage != sb.Stage.TRAIN:
             # Summarize the statistics from the stage for record-keeping.
-            metrics = self.error_metric.summarize()
-            roc_auc = roc_auc_segments(self.error_metric)
+            metrics = self.error_metric.summarize(threshold=0.5)
+            y_pred = self.error_metric.scores.cpu().sigmoid()
+            y_true = self.error_metric.labels.cpu()
+
+            print(classification_report(y_true, torch.where(y_pred > 0.5, 1, 0)))
 
             stats = {
                 "loss": stage_loss,
                 "f-score": metrics["F-score"],
-                "roc_auc": roc_auc,
             }
 
         # At the end of validation, we can write stats, checkpoints and update LR.
@@ -148,12 +136,8 @@ class DownstreamBrain(sb.Brain):
         )
 
     def prepare_datasets(self):
-        prepare_nuhive(
+        self.datasets = prepare_nuhive(
             data_folder=self.config["data_root"],
-            save_folder=self.config["annotation_folder"],
-            skip_prep=False,
-            extension=".wav",
-            chunkwise=self.config["chunkwise"],
-            chunk_length=self.config["chunk_length"],
+            win_length=self.config["win_length"],
+            sample_rate=self.config["sample_rate"],
         )
-        self.datasets = dataio_prep(self.config)

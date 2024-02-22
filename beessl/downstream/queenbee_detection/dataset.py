@@ -9,7 +9,12 @@ from speechbrain.utils.data_utils import get_all_files
 logger = logging.getLogger(__name__)
 
 def prepare_nuhive(
-    data_folder, save_folder, skip_prep=False, extension=".wav", chunkwise=False
+    data_folder,
+    save_folder,
+    skip_prep=False,
+    extension=".wav",
+    chunkwise=False,
+    chunk_length=8000,
 ):
     if skip_prep:
         return
@@ -40,10 +45,10 @@ def prepare_nuhive(
         (wav_lst_valid, save_json_valid),
         (wav_lst_test, save_json_test)
     ]:
-        create_json(*params, chunkwise=chunkwise)
+        create_json(*params, chunkwise=chunkwise, chunk_length=chunk_length)
 
 
-def create_json(wav_lst, json_file, chunkwise=False):
+def create_json(wav_lst, json_file, chunkwise=False, chunk_length=8000):
     logger.debug(f"Creating json lists in {json_file}")
 
     # Processing all the wav files in the list
@@ -51,12 +56,27 @@ def create_json(wav_lst, json_file, chunkwise=False):
     for wav_file in wav_lst:
         id_ = os.path.basename(wav_file).split(".")[0]
         label = 0 if "NO_QueenBee" in id_ else 1
-        duration = torchaudio.info(wav_file).num_frames / 16000
-        json_dict[id_] = {
-            "wav": wav_file,
-            "duration": duration,
-            "label": label,
-        }
+        n_samples = torchaudio.info(wav_file).num_frames
+        if not chunkwise:
+            json_dict[id_] = {
+                "wav": wav_file,
+                "start": 0,
+                "end": n_samples,
+                "duration": n_samples / 16000,
+                "label": label,
+            }
+        else:
+            for count, i in enumerate(range(0, n_samples, chunk_length)):
+                chunk_id = f"{id_}_chunk_{count}"
+                start = i
+                end = min(start + chunk_length, n_samples)
+                json_dict[chunk_id] = {
+                    "wav": wav_file,
+                    "start": start,
+                    "end": end,
+                    "duration": (end - start) / 16000,
+                    "label": label,
+                }
 
     # Writing the json lines
     with open(json_file, mode="w") as json_f:
@@ -83,11 +103,15 @@ def skip(*filenames):
 
 def dataio_prep(hparams):
     # Define audio pipelines
-    @sb.utils.data_pipeline.takes("wav")
+    @sb.utils.data_pipeline.takes("wav", "start", "end")
     @sb.utils.data_pipeline.provides("bee_sig")
-    def wav_pipeline(wav):
-        return sb.dataio.dataio.read_audio(wav)
-    
+    def wav_pipeline(wav, start, end):
+        return sb.dataio.dataio.read_audio({
+            "file": wav,
+            "start": start,
+            "stop": end,
+        })
+
     @sb.utils.data_pipeline.takes("label")
     @sb.utils.data_pipeline.provides("target")
     def label_pipeline(label):
