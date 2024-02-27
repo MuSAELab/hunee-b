@@ -4,7 +4,7 @@ expdir: !PLACEHOLDER
 data_root: !PLACEHOLDER # You can replace this by hand
 model_folder: !ref <expdir>/save
 log_path: !ref <expdir>/log.txt
-win_length: 0.25
+win_length: 1
 sample_rate: 16000
 
 # logs
@@ -12,7 +12,7 @@ train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
   save_file: !ref <log_path>
 
 # Training Parameters
-number_of_epochs: 100
+number_of_epochs: 25
 batch_size: 128
 embd_dim: 64
 
@@ -76,7 +76,7 @@ modules:
 error_stats: !name:speechbrain.utils.metric_stats.BinaryMetricStats
 
 # Optimizer and Scheduler parameters
-lr: 0.0001
+lr: 0.0005
 opt_class: !name:torch.optim.AdamW
   lr: !ref <lr>
   weight_decay: 0.00005

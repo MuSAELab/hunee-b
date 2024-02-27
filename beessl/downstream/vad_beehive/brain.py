@@ -3,7 +3,7 @@ import speechbrain as sb
 import torch.nn.functional as F
 import speechbrain.nnet.schedulers as schedulers
 from beessl.downstream.vad_beehive.dataset import prepare_nuhive
-from sklearn.metrics import classification_report
+from sklearn.metrics import f1_score
 
 
 class DownstreamBrain(sb.Brain):
@@ -59,7 +59,7 @@ class DownstreamBrain(sb.Brain):
         if (stage != sb.Stage.TRAIN):
             self.error_metric.append(
                 ids=torch.arange(len(targets)),
-                scores=predictions,
+                scores=predictions.sigmoid(),
                 labels=targets
             )
 
@@ -83,14 +83,12 @@ class DownstreamBrain(sb.Brain):
         if stage != sb.Stage.TRAIN:
             # Summarize the statistics from the stage for record-keeping.
             metrics = self.error_metric.summarize(threshold=0.5)
-            y_pred = self.error_metric.scores.cpu().sigmoid()
+            y_pred = self.error_metric.scores.cpu()
             y_true = self.error_metric.labels.cpu()
-
-            print(classification_report(y_true, torch.where(y_pred > 0.5, 1, 0)))
 
             stats = {
                 "loss": stage_loss,
-                "f-score": metrics["F-score"],
+                "f-score": f1_score(y_true, (y_pred > 0.5).float(), average="macro")
             }
 
         # At the end of validation, we can write stats, checkpoints and update LR.
