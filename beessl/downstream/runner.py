@@ -10,6 +10,8 @@ class Runner:
 
         # Load downstream components
         self.upstream_model = self._get_upstream()
+        n_params = sum(p.numel() for p in self.upstream_model.parameters())
+        print(f"[Runner] - Number of upstream parameters {n_params}")
         self.downstream = self._get_downstream()
 
     def _get_upstream(self):
