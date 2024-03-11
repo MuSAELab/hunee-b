@@ -4,6 +4,7 @@ from upstream.byola.hubconf import *
 from upstream.ssast.hubconf import *
 from upstream.msm_mae.hubconf import *
 from upstream.m2d.hubconf import *
+from upstream.beats.hubconf import *
 
 def options():
     all_options = set()
