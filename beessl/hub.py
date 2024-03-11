@@ -2,6 +2,8 @@ from upstream.baseline.hubconf import *
 from upstream.beeyol.hubconf import *
 from upstream.byola.hubconf import *
 from upstream.ssast.hubconf import *
+from upstream.msm_mae.hubconf import *
+from upstream.m2d.hubconf import *
 
 def options():
     all_options = set()

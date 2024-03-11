@@ -25,6 +25,8 @@ setup(
         "speechbrain>=0.5.14",
         "transformers==4.28.1",
         "scikit-learn==1.2.2",
+        "einops==0.7.0",
+        "timm==0.5.4"
     ],
     python_requires=">=3.8"
 )
