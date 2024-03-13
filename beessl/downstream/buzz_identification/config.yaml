@@ -15,7 +15,7 @@ train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
 
 # Training Parameters
 number_of_epochs: 20
-batch_size: 128
+batch_size: 32
 
 dataloader_options:
   shuffle: True

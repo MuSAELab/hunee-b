@@ -13,7 +13,7 @@ train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
 
 # Training Parameters
 number_of_epochs: 25
-batch_size: 128
+batch_size: 32
 embd_dim: 64
 
 dataloader_options:

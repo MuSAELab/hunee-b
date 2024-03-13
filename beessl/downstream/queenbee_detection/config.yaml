@@ -17,15 +17,14 @@ train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
 
 # Training Parameters
 number_of_epochs: 10
-batch_size: 16
+batch_size: 4
 
 dataloader_options:
   shuffle: True
   batch_size: !ref <batch_size>
 
 augmentation: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
-  perturb_prob: 1.0
-  speeds: [98, 1, 102]
+  perturb_prob: 0
   drop_freq_prob: 1.0
   drop_chunk_prob: 1.0
   sample_rate: 16000
