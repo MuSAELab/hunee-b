@@ -1,5 +1,7 @@
 # Path: beessl/downstream/beehive_strength/config.yaml
 # Data manifest
+seed: !PLACEHOLDER
+__set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 expdir: !PLACEHOLDER
 data_root: !PLACEHOLDER # You can replace this by hand
 model_folder: !ref <expdir>/save

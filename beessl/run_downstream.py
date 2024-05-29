@@ -72,6 +72,7 @@ def seed_everything(seed):
     np.random.seed(seed)
     torch.manual_seed(seed)
     if torch.cuda.is_available():
+        torch.cuda.manual_seed(seed)
         torch.cuda.manual_seed_all(seed)
         torch.backends.cudnn.enabled = True
         torch.backends.cudnn.deterministic = True
@@ -81,7 +82,8 @@ def parse_override(args):
     num_hidden_layers, in_features = get_representation_info(args)
     override = f"expdir={args.expdir},,"\
                f"num_hidden_layers={num_hidden_layers},,"\
-               f"in_features={in_features}"
+               f"in_features={in_features},,"\
+               f"seed={args.seed}"
 
     if args.override is not None:
         override = f"{override},,{args.override}"
