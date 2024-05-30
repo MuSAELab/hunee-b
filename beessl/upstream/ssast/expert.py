@@ -20,15 +20,10 @@ class UpstreamExpert(nn.Module):
 
         self.tstride = 10
         self.model = ASTModel(
-            fshape=16,
-            tshape=16,
-            fstride=10,
             tstride=self.tstride,
             input_tdim=target_length,
-            input_fdim=128,
-            model_size="tiny",
-            pretrain_stage=False,
             load_pretrained_mdl_path=ckpt,
+            **model_config
         )
         self.vertical_num_patches = (128 - 16) // 10 + 1  # 12
         self.model = self.model.cpu()

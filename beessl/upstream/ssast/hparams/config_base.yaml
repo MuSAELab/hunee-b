@@ -3,5 +3,5 @@ fshape: 16
 tshape: 16
 fstride: 10
 input_fdim: 128
-model_size: "tiny"
+model_size: "base"
 pretrain_stage: False

@@ -71,6 +71,7 @@ class ASTModel(nn.Module):
         model_size="base",
         pretrain_stage=True,
         load_pretrained_mdl_path=None,
+        **kwargs
     ):
         self.num_vertical_patch = (input_fdim - fshape) // fstride + 1
 
