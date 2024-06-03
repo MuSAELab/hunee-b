@@ -142,7 +142,11 @@ class MaskedAutoencoderViT(nn.Module):
         return self.patch_embed.proj.kernel_size
 
     def grid_size(self):
-        return self.patch_embed.grid_size
+        grid_size = (
+            self.patch_embed.img_size[0] // self.patch_embed.patch_size[0],
+            self.patch_embed.img_size[1] // self.patch_embed.patch_size[1]
+        )
+        return grid_size
 
     def img_patch_dim(self):
         patch_size = self.patch_size()

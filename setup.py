@@ -6,7 +6,7 @@ long_description = open("README.md", "r", encoding="utf-8").read()
 setup(
     name="beessl",
     version="0.1.0",
-    description="beeSSL: A benchmark for SSL in Beehive Monitoring tasks",
+    description="HUnEE-B: beeHive monitoring Universal pErformancE Benchmark",
     author="Heitor Guimarães",
     url="https://github.com/Hguimaraes/beeSSL",
     license="MIT",
@@ -18,15 +18,19 @@ setup(
     },
     packages=find_packages(exclude=("tests",)),
     install_requires=[
-        "pandas==2.0.1",
-        "torch==2.0.0",
-        "torchaudio==2.0.1",
-        "torchvision==0.15.1",
-        "speechbrain>=0.5.14",
+        "pandas==2.1.0",
+        "torch==2.3.0",
+        "torchaudio==2.3.0",
+        "torchvision==0.18.0",
+        "speechbrain==0.5.14",
         "transformers==4.28.1",
         "scikit-learn==1.2.2",
         "einops==0.7.0",
-        "timm==0.4.5"
+        "timm==0.4.5",
+        "easydict==1.13",
+        "pytorch_lightning==2.2.5"
+        "nnAudio==0.3.3",
+        "librosa==0.10.2.post1"
     ],
-    python_requires=">=3.8"
+    python_requires=">=3.10"
 )
