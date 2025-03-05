@@ -18,6 +18,7 @@ setup(
     },
     packages=find_packages(exclude=("tests",)),
     install_requires=[
+        "numpy==1.26.4",
         "pandas==2.1.0",
         "torch==2.3.0",
         "torchaudio==2.3.0",
@@ -28,9 +29,9 @@ setup(
         "einops==0.7.0",
         "timm==0.4.5",
         "easydict==1.13",
-        "pytorch_lightning==2.2.5"
+        "pytorch_lightning==2.2.5",
         "nnAudio==0.3.3",
-        "librosa==0.10.2.post1"
+        "librosa==0.10.2.post1",
     ],
-    python_requires=">=3.10"
+    python_requires=">=3.10",
 )
