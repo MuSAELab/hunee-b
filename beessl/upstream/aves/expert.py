@@ -17,6 +17,7 @@ class UpstreamExpert(nn.Module):
 
     def forward(self, wavs, lens=None):
         feats = self.feature_extractor.extract_features(wavs)[0]
+        feats = [f.transpose(1, 2) for f in feats]
         return {
             "hidden_states": feats,
         }
