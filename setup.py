@@ -18,6 +18,12 @@ setup(
     },
     packages=find_packages(exclude=("tests",)),
     install_requires=[
+        "pip==24.0",
+        "scikit-image==0.23.1",
+        "intervaltree==3.1.0",
+        "tensorflow==2.11.0",
+        "matplotlib==3.6.3",
+        "fairseq==0.12.2",
         "numpy==1.26.4",
         "pandas==2.1.0",
         "torch==2.3.0",
