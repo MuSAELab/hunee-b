@@ -6,12 +6,24 @@ HUnEE-B: bee**H**ive monitoring **U**niversal p**E**rformanc**E** **B**enchmark
 
 > tl;dr: HUnEE-B is a benchmark suite for developing general-purpose audio representations that generalize across various tasks in automatic acoustic beehive monitoring. HUnEE-B's first version evaluates eleven models across four critical tasks: beehive state detection, beehive strength assessment, buzzing identification, and beekeeper voice activity detection.
 
+**Paper**: https://ieeexplore.ieee.org/abstract/document/11126110 
+
 ![Alt text](./assets/huneeb_schematics.png?raw=true "Benchmark overview")
 
 # Citing
 
 ```bibtex
-@todo
+@ARTICLE{11126110,
+  author={Guimarães, Heitor R. and Abdollahi, Mahsa and Zhu, Yi and Maucourt, Ségolène and Coallier, Nicolas and Giovenazzo, Pierre and Falk, Tiago H.},
+  journal={IEEE Internet of Things Journal}, 
+  title={Benchmarking Self-Supervised Audio Representations for IoT-Enabled Acoustic Beehive Monitoring}, 
+  year={2025},
+  volume={12},
+  number={21},
+  pages={45000-45010},
+  keywords={Monitoring;Feature extraction;Biomedical acoustics;Biological system modeling;Benchmark testing;Training;Temperature measurement;Load modeling;Internet of Things;Tensors;Acoustics;beehive monitoring;Bioacoustics;deep learning;honeybees;Internet of Things (IoT);self-supervised learning (SSL)},
+  doi={10.1109/JIOT.2025.3599483}
+}
 ```
 
 # Call for contributions
